@@ -1,22 +1,26 @@
-# Weld-Seam-Finding
+# Weld Seam Finding
 
-Image processing pipeline
-* Capture image / geometry acquisition and processing
+## Real-time fine-tuned seam finding
+Starting with adapting a 2D model for 3D before going full 3D.  I started with FastSAM as a baseline, since it claims to be 50x faster than SAM.  It's based on YOLOv8-seg.  Some alternatives include YOLOv8-seg, YOLOv9-seg, YOLACT++, U-Net, BiSeNet.
+
+## Autonomous Programming Workflow
+### Image processing pipeline
+* Capture image/video and geometry
 * Pre-process (normalize lighting, remove noise)
-* Segment the objects (using what approach, U-net, yolo3d, etc)
-  * Do 2D?  
-  *  Do depth approach first with depth camera? 
+* Segment the objects
 * Extract boundary line
-* Convert to 3d coordinates
+* Convert to 3D coordinates
 * Generate trajectory
 
-Path optimization, focuses on the WHAT and WHEN.  Figuring out where the robot arm needs to move/go
+### Path optimization
+Focuses on the WHAT and WHEN, figure out where the robot arm needs to move/go
 * Layer sequence plan
 * Robot kinematic constraints
 * Welding process constraints
 * Workspace boundaries
-* Convert layer plans to waypoints,
+* Convert layer plans to waypoints
 * Generate 
 
-Robot motion planning, focuses on the HOW, figuring out what it takes for the robot arm to move there.  
+### Robot motion planning
+Focuses on the HOW, figure out what it takes for the robot arm to move there
 * Inverse dynamics/kinematics solver
