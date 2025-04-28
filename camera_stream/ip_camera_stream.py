@@ -3,34 +3,32 @@ import numpy as np
 import time
 import argparse
 
-def connect_to_ip_camera(ip_address, port=8080):
+def connect_to_continuity_camera():
     """
-    Connect to IP Webcam stream from iPhone
-    Args:
-        ip_address (str): IP address of the iPhone
-        port (int): Port number (default is 8080 for IP Webcam)
+    Connect to iPhone camera using Continuity Camera
     Returns:
         cv2.VideoCapture object
     """
-    url = f'http://{ip_address}:{port}/video' # construct the URL for the video stream
+    # Note: on macOS, we use the avfoundation backend.  The camera index for Continuity Camera is typically the last available camera, so we'll try to find it automatically
+    for i in range(10):  # try first 10 indices
+        cap = cv2.VideoCapture(i, cv2.CAP_AVFOUNDATION)
+        if cap.isOpened():
+            ret, frame = cap.read() # try to read a frame to verify it's working
+            if ret:
+                print(f"Found Continuity Camera at index {i}")
+                return cap
+            cap.release()
     
-    cap = cv2.VideoCapture(url)
-    
-    if not cap.isOpened():
-        raise Exception("Could not connect to the camera stream")
-    
-    return cap
+    raise Exception("Could not find Continuity Camera. Make sure your iPhone is connected and Continuity Camera is enabled.")
 
 def main():
-    parser = argparse.ArgumentParser(description='Stream video from iPhone camera')
-    parser.add_argument('--ip', type=str, required=True, help='IP address of the iPhone')
-    parser.add_argument('--port', type=int, default=8080, help='Port number (default: 8080)')
+    parser = argparse.ArgumentParser(description='Stream video from iPhone using Continuity Camera')
     args = parser.parse_args()
     
     try:
-        cap = connect_to_ip_camera(args.ip, args.port)
+        cap = connect_to_continuity_camera()
         
-        print(f"Successfully connected to camera stream at {args.ip}:{args.port}")
+        print("Successfully connected to Continuity Camera")
         print("Press 'q' to quit")
         
         while True:
