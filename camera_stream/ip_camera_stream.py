@@ -4,6 +4,7 @@ import time
 import argparse
 import subprocess
 import os
+import platform
 
 def create_info_plist():
     """
@@ -21,25 +22,20 @@ def create_info_plist():
     with open('Info.plist', 'w') as f:
         f.write(info_plist_content)
 
-def get_continuity_camera_index():
+def list_cameras():
     """
-    Find the index of the Continuity Camera (iPhone) using system_profiler
-    Returns:
-        int: Index of the Continuity Camera, or None if not found
+    List all available cameras using system_profiler
     """
     try:
-        # Use system_profiler to get camera information
         result = subprocess.run(['system_profiler', 'SPCameraDataType'], 
                               capture_output=True, text=True)
-        
-        # Look for iPhone or Continuity Camera in the output
-        for i, line in enumerate(result.stdout.split('\n')):
-            if 'iPhone' in line or 'Continuity Camera' in line:
-                # The camera index is typically the number of cameras before this one
-                return i
+        print("\nAvailable cameras:")
+        for line in result.stdout.split('\n'):
+            if 'Camera' in line and ':' in line:
+                print(f"  {line.strip()}")
+        print()
     except Exception as e:
-        print(f"Warning: Could not detect Continuity Camera: {e}")
-    return None
+        print(f"Warning: Could not list cameras: {e}")
 
 def connect_to_continuity_camera():
     """
@@ -47,51 +43,48 @@ def connect_to_continuity_camera():
     Returns:
         cv2.VideoCapture object
     """
-    # Create Info.plist with Continuity Camera settings
-    create_info_plist()
     
-    # First, try to find the Continuity Camera index
-    camera_index = get_continuity_camera_index()
+    create_info_plist() # create info.plist with continuity camera settings
     
-    if camera_index is not None:
-        print(f"Found Continuity Camera at index {camera_index}")
-        # Try to use the Continuity Camera specifically
-        cap = cv2.VideoCapture(camera_index, cv2.CAP_AVFOUNDATION)
+    list_cameras()
         
-        if cap.isOpened():
-            # Set properties for better quality
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-            
-            # Verify we can read frames
-            ret, frame = cap.read()
-            if ret:
-                print("Successfully connected to iPhone camera")
-                return cap
-            else:
-                print("Failed to read from iPhone camera")
-                cap.release()
-    
-    # If we couldn't find or connect to the Continuity Camera, try all indices
-    print("Trying to find iPhone camera...")
-    for i in range(10):
-        print(f"Trying camera index {i}...")
-        cap = cv2.VideoCapture(i, cv2.CAP_AVFOUNDATION)
+    if platform.system() == 'Darwin':  # macOS; on macOS, try diff approaches to access the continuity camera
         
-        if cap.isOpened():
-            # Set properties for better quality
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+        backends = [ # try diff backends
+            (cv2.CAP_AVFOUNDATION, "AVFoundation"),
+            (cv2.CAP_ANY, "Any"),
+            (cv2.CAP_V4L2, "V4L2")
+        ]
+        
+        for backend, backend_name in backends:
+            print(f"\nTrying {backend_name} backend...")
             
-            ret, frame = cap.read()
-            if ret:
-                print(f"Successfully connected to camera at index {i}")
-                return cap
-            else:
-                print(f"Camera {i} opened but failed to read frame")
-                cap.release()
-        else:
-            print(f"Failed to open camera {i}")
+            
+            for i in range(10): # try the first 10 camera indices
+                print(f"  Trying camera index {i}...")
+                cap = cv2.VideoCapture(i, backend)
+                
+                if cap.isOpened():
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+                    
+                    ret, frame = cap.read() # try to read a frame
+                    if ret:
+                        # try and see if this is the iphone camera, since they usually have higher resolution
+                        width = cap.get(cv2.CAP_PROP_FRAME_WIDTH) #
+                        height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+                        
+                        if width >= 1920 and height >= 1080:
+                            print(f"Successfully connected to iPhone camera using {backend_name} backend at index {i}")
+                            return cap
+                        else:
+                            print(f"  Camera {i} opened but might not be iPhone (resolution: {width}x{height})")
+                            cap.release()
+                    else:
+                        print(f"  Camera {i} opened but failed to read frame")
+                        cap.release()
+                else:
+                    print(f"  Failed to open camera {i}")
     
     raise Exception(
         "Could not find iPhone camera. Please ensure:\n"
@@ -100,7 +93,8 @@ def connect_to_continuity_camera():
         "3. Both devices are signed in to the same Apple ID\n"
         "4. Bluetooth and WiFi are enabled on both devices\n"
         "5. Try bringing your iPhone closer to your MacBook\n"
-        "6. Try restarting the Continuity Camera feature on both devices"
+        "6. Try restarting the Continuity Camera feature on both devices\n"
+        "7. Try restarting your iPhone and MacBook"
     )
 
 def main():
